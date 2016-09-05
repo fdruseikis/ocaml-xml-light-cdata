@@ -36,6 +36,7 @@
 type xml = 
 	| Element of (string * (string * string) list * xml list)
 	| PCData of string
+	| CData of string
 
 (** {6 Xml Parsing} *)
 
@@ -77,6 +78,7 @@ type error_pos
 
 type error_msg =
 	| UnterminatedComment
+	| UnterminatedCDataSection
 	| UnterminatedString
 	| UnterminatedEntity
 	| IdentExpected

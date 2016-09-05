@@ -2,6 +2,9 @@
  * Xml Light, an small Xml parser/printer with DTD support.
  * Copyright (C) 2003 Nicolas Cannasse (ncannasse@motion-twin.com)
  *
+ * Extensions for XML <![CDATA[ ]]> sections
+ * Copyright (C) 2016 Frederick C Druseikis (fdruseikis@gmail.com)
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -22,6 +25,7 @@ open Printf
 type xml = 
 	| Element of (string * (string * string) list * xml list)
 	| PCData of string
+	| CData of string
 
 type error_pos = {
 	eline : int;
@@ -32,6 +36,7 @@ type error_pos = {
 
 type error_msg =
 	| UnterminatedComment
+	| UnterminatedCDataSection
 	| UnterminatedString
 	| UnterminatedEntity
 	| IdentExpected
@@ -80,6 +85,7 @@ let parse_file f =
 
 let error_msg = function
 	| UnterminatedComment -> "Unterminated comment"
+	| UnterminatedCDataSection -> "Unterminated CDATA section"
 	| UnterminatedString -> "Unterminated string"
 	| UnterminatedEntity -> "Unterminated entity"
 	| IdentExpected -> "Ident expected"
@@ -120,8 +126,8 @@ let attrib x att =
 	match x with
 	| Element (_,attr,_) ->
 		(try
-			let att = String.lowercase att in
-			snd (List.find (fun (n,_) -> String.lowercase n = att) attr)
+			let att = String.lowercase_ascii att in
+			snd (List.find (fun (n,_) -> String.lowercase_ascii n = att) attr)
 		with
 			Not_found ->
 				raise (No_attribute att))
@@ -149,7 +155,7 @@ let fold f v = function
 	| Element (_,_,clist) -> List.fold_left f v clist
 	| x -> raise (Not_element x)
 
-let tmp = Buffer.create 200
+let tmp = Buffer.create 8192
 
 let buffer_pcdata text =
 	let l = String.length text in
@@ -165,6 +171,13 @@ let buffer_pcdata text =
 		| '\'' -> Buffer.add_string tmp "&apos;"
 		| '"' -> Buffer.add_string tmp "&quot;"
 		| c -> Buffer.add_char tmp c
+	done
+
+let buffer_cdata text =
+	let l = String.length text in
+	for p = 0 to l-1 do 
+		let c = text.[p] in
+		Buffer.add_char tmp c
 	done
 
 let buffer_attr (n,v) =
@@ -203,6 +216,11 @@ let to_string x =
 		| PCData text ->
 			if !pcdata then Buffer.add_char tmp ' ';
 			buffer_pcdata text;
+			pcdata := true;
+		| CData text ->
+			Buffer.add_string tmp "<![CDATA[";
+			buffer_cdata text;
+			Buffer.add_string tmp "]]>";
 			pcdata := true;
 	in
 	Buffer.reset tmp;
@@ -245,6 +263,11 @@ let to_string_fmt x =
 			if newl then Buffer.add_char tmp '\n';
 		| PCData text ->
 			buffer_pcdata text;
+			if newl then Buffer.add_char tmp '\n';
+		| CData text ->
+			Buffer.add_string tmp "<![CDATA[";
+			buffer_cdata text;
+			Buffer.add_string tmp "]]>";
 			if newl then Buffer.add_char tmp '\n';
 	in
 	Buffer.reset tmp;

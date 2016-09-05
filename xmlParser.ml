@@ -3,6 +3,9 @@
  * Copyright (C) 2003 Nicolas Cannasse (ncannasse@motion-twin.com)
  * Copyright (C) 2003 Jacques Garrigue
  *
+ * Extensions for XML <![CDATA[ ]]> sections
+ * Copyright (C) 2016 Frederick C Druseikis (fdruseikis@gmail.com)
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -78,6 +81,7 @@ let push t s =
 
 let rec read_node s =
 	match pop s with
+	| Xml_lexer.CData s -> CData s
 	| Xml_lexer.PCData s -> PCData s
 	| Xml_lexer.Tag (tag, attr, true) -> Element (tag, attr, [])
 	| Xml_lexer.Tag (tag, attr, false) -> Element (tag, attr, read_elems ~tag s)
@@ -125,6 +129,7 @@ let read_xml s =
 
 let convert = function
 	| Xml_lexer.EUnterminatedComment -> UnterminatedComment
+	| Xml_lexer.EUnterminatedCDataSection -> UnterminatedCDataSection
 	| Xml_lexer.EUnterminatedString -> UnterminatedString
 	| Xml_lexer.EIdentExpected -> IdentExpected
 	| Xml_lexer.ECloseExpected -> CloseExpected

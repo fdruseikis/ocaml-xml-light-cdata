@@ -2,6 +2,9 @@
  * Xml Light, an small Xml parser/printer with DTD support.
  * Copyright (C) 2003 Nicolas Cannasse (ncannasse@motion-twin.com)
  *
+ * Extensions for XML <![CDATA[ ]]> sections
+ * Copyright (C) 2016 Frederick C Druseikis (fdruseikis@gmail.com)
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -23,6 +26,7 @@ open Dtd
 
 type error =
 	| EUnterminatedComment
+	| EUnterminatedCDataSection
 	| EUnterminatedString
 	| EIdentExpected
 	| ECloseExpected
@@ -54,6 +58,7 @@ type dtd_item_type =
 type token =
 	| Tag of string * (string * string) list * bool
 	| PCData of string
+	| CData of string
 	| Endtag of string
 	| DocType of (string * dtd_decl)
 	| Eof
@@ -62,7 +67,7 @@ let last_pos = ref 0
 and current_line = ref 0
 and current_line_start = ref 0
 
-let tmp = Buffer.create 200
+let tmp = Buffer.create 256
 
 let idents = Hashtbl.create 0
 
@@ -138,6 +143,12 @@ rule token = parse
 			last_pos := lexeme_start lexbuf;
 			comment lexbuf;
 			token lexbuf
+		}
+	| "<![CDATA["
+		{
+			last_pos := lexeme_start lexbuf;
+			Buffer.reset tmp;
+			CData (cdata_section lexbuf)
 		}
 	| "<?"
 		{
@@ -247,7 +258,7 @@ and entity = parse
 		{
 			let ident = lexeme lexbuf in
 			try
-				Hashtbl.find idents (String.lowercase ident)
+				Hashtbl.find idents (String.lowercase_ascii ident)
 			with
 				Not_found -> "&" ^ ident
 		}
@@ -332,6 +343,31 @@ and q_string = parse
 		{ 
 			Buffer.add_char tmp (lexeme_char lexbuf 0);
 			q_string lexbuf
+		}
+
+and cdata_section = parse
+	| break
+		{
+			Buffer.add_char tmp '\r';
+			newline lexbuf;
+			cdata_section lexbuf
+		}
+    | newline
+		{
+			newline lexbuf;
+			Buffer.add_char tmp '\n';
+			cdata_section lexbuf
+		}
+	| "]]>"
+		{
+			Buffer.contents tmp
+		}
+	| eof
+		{ raise (Error EUnterminatedCDataSection) }
+	| _
+		{
+			Buffer.add_char tmp (lexeme_char lexbuf 0);
+			cdata_section lexbuf
 		}
 
 and dtd_data = parse

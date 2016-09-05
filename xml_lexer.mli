@@ -2,6 +2,9 @@
  * Xml Light, an small Xml parser/printer with DTD support.
  * Copyright (C) 2003 Nicolas Cannasse (ncannasse@motion-twin.com)
  *
+ * Extensions for XML <![CDATA[ ]]> sections
+ * Copyright (C) 2016 Frederick C Druseikis (fdruseikis@gmail.com)
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation; either
@@ -19,6 +22,7 @@
 
 type error =
 	| EUnterminatedComment
+	| EUnterminatedCDataSection
 	| EUnterminatedString
 	| EIdentExpected
 	| ECloseExpected
@@ -44,6 +48,7 @@ type dtd_decl =
 type token =
 	| Tag of string * (string * string) list * bool
 	| PCData of string
+	| CData of string
 	| Endtag of string
 	| DocType of (string * dtd_decl)
 	| Eof
